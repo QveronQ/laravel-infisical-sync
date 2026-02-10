@@ -20,6 +20,10 @@ return [
         'INFISICAL_*',
     ],
 
+    // Conflict resolution strategy for infisical:sync command
+    // Options: 'remote' (Infisical wins), 'local' (local wins), 'skip' (ignore conflicts)
+    'sync_conflict_strategy' => env('INFISICAL_SYNC_CONFLICT_STRATEGY', 'skip'),
+
     // Path to the .env file to synchronize
     'env_file' => base_path('.env'),
 ];

@@ -25,6 +25,7 @@ class EnvFile
             return $this;
         }
 
+        $content = str_replace("\r\n", "\n", $content);
         $lines = explode("\n", $content);
         $i = 0;
         $count = count($lines);

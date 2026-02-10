@@ -5,6 +5,7 @@ namespace Quentin\InfisicalSync;
 use Quentin\InfisicalSync\Commands\DiffCommand;
 use Quentin\InfisicalSync\Commands\PullCommand;
 use Quentin\InfisicalSync\Commands\PushCommand;
+use Quentin\InfisicalSync\Commands\SyncCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -19,6 +20,7 @@ class InfisicalSyncServiceProvider extends PackageServiceProvider
                 PullCommand::class,
                 PushCommand::class,
                 DiffCommand::class,
+                SyncCommand::class,
             ]);
     }
 

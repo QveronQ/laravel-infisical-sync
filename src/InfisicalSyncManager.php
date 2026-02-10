@@ -171,6 +171,86 @@ class InfisicalSyncManager
         );
     }
 
+    public function sync(
+        string $envFilePath,
+        ?string $environment = null,
+        ?string $secretPath = null,
+        string $conflictStrategy = 'skip',
+        bool $dryRun = false,
+        bool $backup = false,
+        ?Closure $onProgress = null,
+    ): SyncResult {
+        $envFile = (new EnvFile($envFilePath))->parse();
+        $localVars = $this->filterExcluded($envFile->variables());
+
+        $remoteSecrets = $this->client->listSecrets($environment, $secretPath);
+        $remoteMap = $this->filterExcluded($this->buildRemoteMap($remoteSecrets));
+
+        $localOnly = array_diff_key($localVars, $remoteMap);
+        $remoteOnly = array_diff_key($remoteMap, $localVars);
+
+        $conflictsResolved = [];
+        $conflictsSkipped = [];
+        $unchanged = [];
+
+        foreach (array_intersect_key($localVars, $remoteMap) as $key => $localValue) {
+            if ($localValue !== $remoteMap[$key]) {
+                if ($conflictStrategy === 'skip') {
+                    $conflictsSkipped[] = $key;
+                } else {
+                    $conflictsResolved[] = $key;
+                }
+            } else {
+                $unchanged[] = $key;
+            }
+        }
+
+        if (! $dryRun) {
+            if ($backup) {
+                $envFile->backup();
+            }
+
+            foreach ($localOnly as $key => $value) {
+                $this->client->createSecret($key, $value, $environment, $secretPath);
+                if ($onProgress) {
+                    $onProgress($key);
+                }
+            }
+
+            foreach ($remoteOnly as $key => $value) {
+                $envFile->set($key, $value);
+                if ($onProgress) {
+                    $onProgress($key);
+                }
+            }
+
+            foreach ($conflictsResolved as $key) {
+                if ($conflictStrategy === 'remote') {
+                    $envFile->set($key, $remoteMap[$key]);
+                } elseif ($conflictStrategy === 'local') {
+                    $this->client->updateSecret($key, $localVars[$key], $environment, $secretPath);
+                }
+                if ($onProgress) {
+                    $onProgress($key);
+                }
+            }
+
+            if (count($remoteOnly) > 0 || ($conflictStrategy === 'remote' && count($conflictsResolved) > 0)) {
+                $envFile->write();
+            }
+        }
+
+        return new SyncResult(
+            pushed: array_keys($localOnly),
+            pulled: array_keys($remoteOnly),
+            conflictsResolved: $conflictsResolved,
+            conflictsSkipped: $conflictsSkipped,
+            unchanged: $unchanged,
+            localValues: $localVars,
+            remoteValues: $remoteMap,
+        );
+    }
+
     public function client(): InfisicalClient
     {
         return $this->client;
