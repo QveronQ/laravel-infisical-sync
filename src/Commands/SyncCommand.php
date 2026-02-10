@@ -67,6 +67,17 @@ class SyncCommand extends Command
 
         try {
             $total = count($result->pushed) + count($result->pulled) + count($result->conflictsResolved);
+
+            if ($total === 0) {
+                $this->components->info(sprintf(
+                    'Done! 0 pushed, 0 pulled, 0 conflicts resolved, %d skipped, %d unchanged.',
+                    count($result->conflictsSkipped),
+                    count($result->unchanged),
+                ));
+
+                return self::SUCCESS;
+            }
+
             $bar = $this->output->createProgressBar($total);
             $bar->start();
 
