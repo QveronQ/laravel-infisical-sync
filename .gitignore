@@ -30,3 +30,14 @@ phpstan.neon
 testbench.yaml
 /docs
 /coverage
+
+# Local dev environment
+.ddev/
+.env
+.env.*
+!.env.example
+
+# Project internal docs
+BRIEF.md
+CLAUDE.md
+test-connection.php
