@@ -52,6 +52,7 @@ class InfisicalClient
             environment: $environment ?? $this->environment,
             secretPath: $secretPath ?? $this->secretPath,
             projectId: $this->projectId,
+            expandSecretReferences: false,
         ));
     }
 
