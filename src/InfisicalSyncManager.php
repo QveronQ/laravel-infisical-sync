@@ -111,14 +111,18 @@ class InfisicalSyncManager
 
                 if (! $dryRun) {
                     $this->client->createSecret($key, $value, $environment, $secretPath);
-                    if ($onProgress) { $onProgress($key); }
+                    if ($onProgress) {
+                        $onProgress($key);
+                    }
                 }
             } elseif ($remoteMap[$key] !== $value) {
                 $updated[] = $key;
 
                 if (! $dryRun) {
                     $this->client->updateSecret($key, $value, $environment, $secretPath);
-                    if ($onProgress) { $onProgress($key); }
+                    if ($onProgress) {
+                        $onProgress($key);
+                    }
                 }
             } else {
                 $unchanged[] = $key;
