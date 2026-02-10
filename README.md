@@ -25,6 +25,7 @@ php artisan vendor:publish --tag="laravel-infisical-sync-config"
 Then add the following to your `.env`:
 
 ```env
+INFISICAL_URL=https://app.infisical.com          # Optional, for self-hosted instances
 INFISICAL_CLIENT_ID=your-machine-identity-client-id
 INFISICAL_CLIENT_SECRET=your-machine-identity-client-secret
 INFISICAL_PROJECT_ID=your-project-id
