@@ -13,7 +13,9 @@ class PullCommand extends Command
         {--force : Skip confirmation prompt}
         {--backup : Create .env.backup before writing}
         {--dry-run : Show what would change without writing}
-        {--show-values : Show actual secret values instead of masking}';
+        {--show-values : Show actual secret values instead of masking}
+        {--delete : Also remove local variables not present in Infisical}
+        {--no-config-cache : Skip running config:cache after pull}';
 
     protected $description = 'Pull secrets from Infisical and update the local .env file';
 
@@ -26,6 +28,7 @@ class PullCommand extends Command
         $backup = (bool) $this->option('backup');
         $dryRun = (bool) $this->option('dry-run');
         $showValues = (bool) $this->option('show-values');
+        $delete = (bool) $this->option('delete');
 
         try {
             $result = $manager->pull($envFile, $environment, $secretPath, dryRun: true);
@@ -35,13 +38,33 @@ class PullCommand extends Command
             return self::FAILURE;
         }
 
-        if (! $result->hasChanges()) {
+        $hasLocalOnly = count($result->localOnly) > 0;
+
+        if (! $result->hasChanges() && ! $hasLocalOnly) {
             $this->components->info('No changes to apply. Local .env is already up to date.');
 
             return self::SUCCESS;
         }
 
         $this->displayChanges($result->created, $result->updated, $result->remoteValues, $showValues);
+
+        $deleteKeys = [];
+
+        if ($hasLocalOnly) {
+            $this->newLine();
+            $this->components->warn('Variables in local .env but not in Infisical:');
+            $this->table(
+                ['Key', 'Value'],
+                collect($result->localOnly)->map(fn (string $key) => [
+                    $key,
+                    $showValues ? ($result->localValues[$key] ?? '') : '***',
+                ])->all(),
+            );
+
+            if (! $dryRun && ($delete || (! $force && $this->components->confirm('Remove these variables from local .env?', false)))) {
+                $deleteKeys = $result->localOnly;
+            }
+        }
 
         if ($dryRun) {
             $this->newLine();
@@ -50,14 +73,18 @@ class PullCommand extends Command
             return self::SUCCESS;
         }
 
-        if (! $force && ! $this->components->confirm('Apply these changes to your .env file?')) {
+        if (! $result->hasChanges() && count($deleteKeys) === 0) {
+            return self::SUCCESS;
+        }
+
+        if (! $force && count($deleteKeys) === 0 && ! $this->components->confirm('Apply these changes to your .env file?')) {
             $this->components->info('Operation cancelled.');
 
             return self::SUCCESS;
         }
 
         try {
-            $result = $manager->pull($envFile, $environment, $secretPath, dryRun: false, backup: $backup);
+            $result = $manager->pull($envFile, $environment, $secretPath, dryRun: false, backup: $backup, deleteKeys: $deleteKeys);
         } catch (\Throwable $e) {
             $this->components->error("Failed to write .env: {$e->getMessage()}");
 
@@ -69,13 +96,26 @@ class PullCommand extends Command
         }
 
         $this->components->info(sprintf(
-            'Done! %d created, %d updated, %d unchanged.',
+            'Done! %d created, %d updated, %d deleted, %d unchanged.',
             count($result->created),
             count($result->updated),
+            count($result->deleted),
             count($result->unchanged),
         ));
 
+        $this->runConfigCache();
+
         return self::SUCCESS;
+    }
+
+    private function runConfigCache(): void
+    {
+        if ($this->option('no-config-cache') || ! config('infisical-sync.config_cache_after_sync', true)) {
+            return;
+        }
+
+        $this->call('config:cache');
+        $this->components->info('Config cache refreshed.');
     }
 
     /**
