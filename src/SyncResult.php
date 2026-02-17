@@ -10,6 +10,7 @@ final readonly class SyncResult
      * @param  string[]  $conflictsResolved
      * @param  string[]  $conflictsSkipped
      * @param  string[]  $unchanged
+     * @param  string[]  $deleted
      * @param  array<string, string>  $localValues
      * @param  array<string, string>  $remoteValues
      */
@@ -19,6 +20,7 @@ final readonly class SyncResult
         public array $conflictsResolved,
         public array $conflictsSkipped,
         public array $unchanged,
+        public array $deleted,
         public array $localValues,
         public array $remoteValues,
     ) {}
@@ -27,6 +29,7 @@ final readonly class SyncResult
     {
         return count($this->pushed) > 0
             || count($this->pulled) > 0
-            || count($this->conflictsResolved) > 0;
+            || count($this->conflictsResolved) > 0
+            || count($this->deleted) > 0;
     }
 }

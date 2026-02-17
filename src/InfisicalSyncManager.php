@@ -38,14 +38,19 @@ class InfisicalSyncManager
         );
     }
 
+    /**
+     * @param  string[]  $deleteKeys  Keys to remove from local .env
+     */
     public function pull(
         string $envFilePath,
         ?string $environment = null,
         ?string $secretPath = null,
         bool $dryRun = false,
         bool $backup = false,
+        array $deleteKeys = [],
     ): PullResult {
         $envFile = (new EnvFile($envFilePath))->parse();
+        $localVars = $this->filterExcluded($envFile->variables());
 
         $remoteSecrets = $this->client->listSecrets($environment, $secretPath);
         $remoteMap = $this->buildRemoteMap($remoteSecrets);
@@ -65,6 +70,9 @@ class InfisicalSyncManager
             }
         }
 
+        $localOnly = array_keys(array_diff_key($localVars, $remoteMap));
+        $deleted = [];
+
         if (! $dryRun) {
             if ($backup) {
                 $envFile->backup();
@@ -76,6 +84,13 @@ class InfisicalSyncManager
                 }
             }
 
+            foreach ($deleteKeys as $key) {
+                if (in_array($key, $localOnly, true)) {
+                    $envFile->remove($key);
+                    $deleted[] = $key;
+                }
+            }
+
             $envFile->write();
         }
 
@@ -83,8 +98,10 @@ class InfisicalSyncManager
             created: $created,
             updated: $updated,
             unchanged: $unchanged,
+            localOnly: $localOnly,
+            deleted: $deleted,
             remoteValues: $remoteMap,
-            localValues: $envFile->variables(),
+            localValues: $localVars,
         );
     }
 
@@ -171,6 +188,9 @@ class InfisicalSyncManager
         );
     }
 
+    /**
+     * @param  string[]  $deleteKeys  Keys to remove from local .env instead of pushing
+     */
     public function sync(
         string $envFilePath,
         ?string $environment = null,
@@ -179,6 +199,7 @@ class InfisicalSyncManager
         bool $dryRun = false,
         bool $backup = false,
         ?Closure $onProgress = null,
+        array $deleteKeys = [],
     ): SyncResult {
         $envFile = (new EnvFile($envFilePath))->parse();
         $localVars = $this->filterExcluded($envFile->variables());
@@ -192,6 +213,7 @@ class InfisicalSyncManager
         $conflictsResolved = [];
         $conflictsSkipped = [];
         $unchanged = [];
+        $deleted = [];
 
         foreach (array_intersect_key($localVars, $remoteMap) as $key => $localValue) {
             if ($localValue !== $remoteMap[$key]) {
@@ -205,13 +227,25 @@ class InfisicalSyncManager
             }
         }
 
+        // Separate local-only keys into pushed vs deleted
+        $toPush = array_diff_key($localOnly, array_flip($deleteKeys));
+        $toDelete = array_intersect_key($localOnly, array_flip($deleteKeys));
+
         if (! $dryRun) {
             if ($backup) {
                 $envFile->backup();
             }
 
-            foreach ($localOnly as $key => $value) {
+            foreach ($toPush as $key => $value) {
                 $this->client->createSecret($key, $value, $environment, $secretPath);
+                if ($onProgress) {
+                    $onProgress($key);
+                }
+            }
+
+            foreach ($toDelete as $key => $value) {
+                $envFile->remove($key);
+                $deleted[] = $key;
                 if ($onProgress) {
                     $onProgress($key);
                 }
@@ -235,17 +269,22 @@ class InfisicalSyncManager
                 }
             }
 
-            if (count($remoteOnly) > 0 || ($conflictStrategy === 'remote' && count($conflictsResolved) > 0)) {
+            $needsWrite = count($remoteOnly) > 0
+                || count($deleted) > 0
+                || ($conflictStrategy === 'remote' && count($conflictsResolved) > 0);
+
+            if ($needsWrite) {
                 $envFile->write();
             }
         }
 
         return new SyncResult(
-            pushed: array_keys($localOnly),
+            pushed: array_keys($toPush),
             pulled: array_keys($remoteOnly),
             conflictsResolved: $conflictsResolved,
             conflictsSkipped: $conflictsSkipped,
             unchanged: $unchanged,
+            deleted: $deleted,
             localValues: $localVars,
             remoteValues: $remoteMap,
         );

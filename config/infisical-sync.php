@@ -24,6 +24,9 @@ return [
     // Options: 'remote' (Infisical wins), 'local' (local wins), 'skip' (ignore conflicts)
     'sync_conflict_strategy' => env('INFISICAL_SYNC_CONFLICT_STRATEGY', 'skip'),
 
+    // Run php artisan config:cache after pull/sync commands
+    'config_cache_after_sync' => env('INFISICAL_CONFIG_CACHE', true),
+
     // Path to the .env file to synchronize
     'env_file' => base_path('.env'),
 ];
