@@ -33,6 +33,25 @@ class InfisicalClient
             return;
         }
 
+        $maskCredential = function (string $value): string {
+            $len = strlen($value);
+            if ($len === 0) {
+                return '(empty)';
+            }
+            if ($len <= 8) {
+                return substr($value, 0, 2) . str_repeat('*', $len - 2);
+            }
+
+            return substr($value, 0, 4) . str_repeat('*', $len - 8) . substr($value, -4);
+        };
+
+        logger()->debug('Infisical auth attempt', [
+            'url' => $this->url,
+            'client_id' => $maskCredential($this->clientId),
+            'client_secret' => $maskCredential($this->clientSecret),
+            'project_id' => $this->projectId,
+        ]);
+
         $this->sdk->auth()->universalAuth()->login(
             $this->clientId,
             $this->clientSecret,
