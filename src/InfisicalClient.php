@@ -39,10 +39,10 @@ class InfisicalClient
                 return '(empty)';
             }
             if ($len <= 8) {
-                return substr($value, 0, 2) . str_repeat('*', $len - 2);
+                return substr($value, 0, 2).str_repeat('*', $len - 2);
             }
 
-            return substr($value, 0, 4) . str_repeat('*', $len - 8) . substr($value, -4);
+            return substr($value, 0, 4).str_repeat('*', $len - 8).substr($value, -4);
         };
 
         logger()->debug('Infisical auth attempt', [
